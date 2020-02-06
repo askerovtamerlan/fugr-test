@@ -1,102 +1,176 @@
 <template>
   <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br />
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener"
-        >vue-cli documentation</a
-      >.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel"
-          target="_blank"
-          rel="noopener"
-          >babel</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint"
-          target="_blank"
-          rel="noopener"
-          >eslint</a
-        >
-      </li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li>
-        <a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a>
-      </li>
-      <li>
-        <a href="https://forum.vuejs.org" target="_blank" rel="noopener"
-          >Forum</a
-        >
-      </li>
-      <li>
-        <a href="https://chat.vuejs.org" target="_blank" rel="noopener"
-          >Community Chat</a
-        >
-      </li>
-      <li>
-        <a href="https://twitter.com/vuejs" target="_blank" rel="noopener"
-          >Twitter</a
-        >
-      </li>
-      <li>
-        <a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a>
-      </li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li>
-        <a href="https://router.vuejs.org" target="_blank" rel="noopener"
-          >vue-router</a
-        >
-      </li>
-      <li>
-        <a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a>
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-devtools#vue-devtools"
-          target="_blank"
-          rel="noopener"
-          >vue-devtools</a
-        >
-      </li>
-      <li>
-        <a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener"
-          >vue-loader</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/awesome-vue"
-          target="_blank"
-          rel="noopener"
-          >awesome-vue</a
-        >
-      </li>
-    </ul>
+    <p>Hello World!</p>
+    <p>Hello World Again! New message. Hot Reload works well</p>
+    <div class="buttons-container">
+      <button
+        type="button"
+        class="btn btn-outline-success"
+        v-on:click="selectVolumeData('маленький')"
+      >
+        Маленький
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-danger"
+        v-on:click="selectVolumeData('большой')"
+      >
+        Большой
+      </button>
+    </div>
+    <!-- <div class="loading-container" v-if="loading">LOADING ...</div> -->
+    <div v-show="isIndexSelected">
+      <pre> {{ people[index] }} </pre>
+    </div>
+    <div class="search-container">
+      <input type="text" v-model="query" />
+      <button class="btn btn-outline-warning">Искать</button>
+    </div>
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th scope="col">ID<span v-on:click="property = 'id'">SORT</span></th>
+          <th scope="col">Имя</th>
+          <th scope="col">Фамилия</th>
+          <th scope="col">Электропочта</th>
+          <th scope="col">Телефон</th>
+          <th scope="col">Адрес</th>
+          <th scope="col">Описание</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-if="loading">
+          <td class="table-success" colspan="7">загрузка...</td>
+        </tr>
+        <table-element
+          v-for="(person, index) in selectedPeople"
+          v-bind:key="index"
+          v-bind:person="person"
+          v-on:click.native="selectPerson(index)"
+        ></table-element>
+      </tbody>
+    </table>
+    <pagination></pagination>
   </div>
 </template>
 
 <script>
+import TableElement from '@/components/TableElement.vue'
+import Pagination from '@/components/Pagination.vue'
+
 export default {
-  name: "HelloWorld",
+  name: 'HelloWorld',
+  components: {
+    TableElement,
+    Pagination
+  },
   props: {
     msg: String
+  },
+  data() {
+    return {
+      //settings
+      size: '',
+      url: '',
+      loading: false,
+
+      people: [],
+
+      // select person
+      index: null,
+
+      // filter
+      property: '',
+      order: 'убывание',
+      query: '',
+
+      // pagination
+      pages: null,
+      currentPage: null,
+      perPage: 5
+
+      // add
+    }
+  },
+  computed: {
+    isIndexSelected() {
+      return this.index !== null
+    },
+    selectedPeople() {
+      let filteredPeople = [...this.people]
+
+      if (this.property) {
+        const ascending = (a, b) =>
+          a[`${this.property}`] - b[`${this.property}`]
+        const descending = (a, b) =>
+          b[`${this.property}`] - a[`${this.property}`]
+        let expression
+
+        if (this.order === 'возрастание') {
+          expression = ascending
+        } else if (this.order === 'убывание') {
+          expression = descending
+        }
+
+        filteredPeople.sort(expression)
+      }
+
+      if (this.query) {
+        filteredPeople.filter(person => {
+          console.log(JSON.stringify(person).includes(this.query))
+          return JSON.stringify(person).includes(this.query)
+        })
+      }
+
+      return filteredPeople
+    }
+  },
+  watch: {
+    size: async function() {
+      this.selectURLtoFetch()
+      await this.fetchData()
+    }
+  },
+  methods: {
+    selectPerson(index) {
+      this.index = index
+    },
+    selectVolumeData(size) {
+      this.size = size
+    },
+    selectURLtoFetch() {
+      if (this.size === 'маленький') {
+        this.url = `${process.env.VUE_APP_URL_32ROWS}`
+      } else if (this.size === 'большой') {
+        this.url = `${process.env.VUE_APP_URL_1000ROWS}`
+      }
+    },
+    async fetchData() {
+      this.loading = true
+
+      try {
+        const { data } = await this.$http.request({
+          url: this.url
+        })
+        console.log('data')
+        console.log(data)
+
+        this.people = data
+      } catch (error) {
+        console.log(error)
+      }
+      this.loading = false
+    }
   }
-};
+}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.loading-row {
+  /* text-align: center; */
+}
+
 h3 {
   margin: 40px 0 0;
 }
